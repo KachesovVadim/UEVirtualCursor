@@ -37,11 +37,14 @@ public class UEVirtualCursor : ModuleRules
 				"Slate",
 				"SlateCore",
 			});
-		
-		// DynamicallyLoadedModuleNames.AddRange(
-		// 	new string[]
-		// 	{
-		// 	});
-		
-	}
+
+        // DynamicallyLoadedModuleNames.AddRange(
+        // 	new string[]
+        // 	{
+        // 	});
+
+        // Needs for ReliableCursorMove()
+        //PublicAdditionalLibraries.Add("Xinput.lib");
+
+    }
 }
