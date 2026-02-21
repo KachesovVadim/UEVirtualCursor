@@ -6,6 +6,9 @@
 #include "Engine/LocalPlayer.h"
 #include "Framework/Application/AnalogCursor.h"
 
+// VIRTUAL GAMEPAD UPDATE
+
+
 DECLARE_LOG_CATEGORY_EXTERN(LogVirtualAnalogCursor, Log, All);
 
 DECLARE_EVENT_OneParam(FVirtualAnalogCursor, FHoverStateChanged, FName);
@@ -86,6 +89,13 @@ public:
 	uint8 bAnalogDebug : 1;
 
 	FHoverStateChanged OnHoverStateChanged;
+
+	// VIRTUAL GAMEPAD UPDATE
+	const int DEADZONE = 8000;  // Avoid drift (XInput: +-32767)
+	const float SENSITIVITY = 0.5f;  // Adjust cursor speed
+	//XINPUT_STATE state;
+
+	void ReliableCursorMove();
 
 private:
 
