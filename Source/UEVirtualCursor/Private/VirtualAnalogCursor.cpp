@@ -9,6 +9,14 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Engine/UserInterfaceSettings.h"
 
+// VIRTUAL GAMEPAD UPDATE
+#include "Input/Events.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Misc/CoreMiscDefines.h"
+//#include <Windows.h>
+//#include <Xinput.h>
+
+
 DEFINE_LOG_CATEGORY(LogVirtualAnalogCursor);
 
 // Helper macro for getting the settings without being able to edit the settings
@@ -52,6 +60,48 @@ int32 FVirtualAnalogCursor::GetOwnerUserIndex() const
 	}
 	return 0;
 }
+
+// VIRTUAL GAMEPAD UPDATE
+// This crazy function needs to move the SYSTEM cursor without engine. Works on Windows only.
+
+// Poll gamepad and move mouse based on left stick
+//void FVirtualAnalogCursor::ReliableCursorMove() {
+//	XINPUT_STATE state;
+//	// Get gamepad state (user index 0 = first connected gamepad)
+//	DWORD result = XInputGetState(0, &state);
+//	if (result != ERROR_SUCCESS) {
+//		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, "NO GAMEPAD CONNECTED");
+//		return;
+//	}
+//
+//	SHORT x = state.Gamepad.sThumbLX;
+//	SHORT y = state.Gamepad.sThumbLY;
+//
+//	// Apply deadzone
+//	if (abs(x) < DEADZONE) x = 0;
+//	if (abs(y) < DEADZONE) y = 0;
+//
+//	// Convert stick to screen movement
+//	int dx = static_cast<int>(x * SENSITIVITY / 1000.0f);
+//	int dy = static_cast<int>(-y * SENSITIVITY / 1000.0f);  // Invert Y (stick up = cursor up)
+//
+//	// Get current cursor position
+//	POINT pt;
+//	if (!GetCursorPos(&pt)) {
+//		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, "Failed to get cursor position!");
+//		return;
+//	}
+//
+//	// Compute new position
+//	int newX = pt.x + dx;
+//	int newY = pt.y + dy;
+//
+//
+//	// Move cursor
+//	if (!SetCursorPos(newX, newY)) {
+//		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, "CURSOR MOVE ERROR");
+//	}	
+//}
 
 bool FVirtualAnalogCursor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
@@ -128,6 +178,38 @@ bool FVirtualAnalogCursor::HandleMouseButtonDownEvent(FSlateApplication& SlateAp
 		return false;
 	}
 
+	// VIRTUAL GAMEPAD UPDATE
+	// Call the mouse down event in widget 
+	FInputDeviceId DeviceId = FInputDeviceId::CreateFromInternalId(GetOwnerUserIndex());
+	const uint32 PointerIndex = 0;
+	const float WheelDelta = 0.0f;
+	const FModifierKeysState ModifierKeys;
+	const uint32 UserIndex = GetOwnerUserIndex();
+
+	// Prepare pressed buttons set including LeftMouseButton
+	TSet<FKey> PressedButtonsSet;
+	PressedButtonsSet.Add(EKeys::LeftMouseButton);
+
+	FPointerEvent SyntheticMouseDownEvent(
+		DeviceId,
+		PointerIndex,
+		CurrentPosition,
+		CurrentPosition,
+		PressedButtonsSet,          // <-- pressed buttons here
+		EKeys::LeftMouseButton,
+		WheelDelta,
+		ModifierKeys,
+		UserIndex
+	);
+
+	FWidgetPath FoundWidgetPath = SlateApp.LocateWindowUnderMouse(CurrentPosition, SlateApp.GetInteractiveTopLevelWindows());
+
+	if (FoundWidgetPath.IsValid())
+	{
+		// "on mouse down" function call 
+		SlateApp.RoutePointerDownEvent(FoundWidgetPath, SyntheticMouseDownEvent);
+	}
+
 	const FKey& PressedKey = MouseEvent.GetEffectingButton();
 	if (PressedKeys.Contains(PressedKey))
 	{
@@ -154,6 +236,35 @@ bool FVirtualAnalogCursor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp,
 	{
 		// If the index of whoever pressed a key is not this cursor's index then its another local player(so they dont control the inputs)
 		return false;
+	}
+
+	// VIRTUAL GAMEPAD UPDATE
+	// Call the mouse up event in widget 
+	FInputDeviceId DeviceId = FInputDeviceId::CreateFromInternalId(GetOwnerUserIndex());
+	const uint32 PointerIndex = 0;
+	const float WheelDelta = 0.0f;
+	const FModifierKeysState ModifierKeys;
+	const uint32 UserIndex = GetOwnerUserIndex();
+	TSet<FKey> PressedButtonsSet;
+
+	FPointerEvent SyntheticMouseUpEvent(
+		DeviceId,
+		PointerIndex,
+		CurrentPosition,
+		CurrentPosition,
+		PressedButtonsSet,          
+		EKeys::LeftMouseButton,
+		WheelDelta,
+		ModifierKeys,
+		UserIndex
+	);
+
+	FWidgetPath FoundWidgetPath = SlateApp.LocateWindowUnderMouse(CurrentPosition, SlateApp.GetInteractiveTopLevelWindows());
+
+	if (FoundWidgetPath.IsValid())
+	{
+		// "on mouse up" function call 
+		SlateApp.RoutePointerUpEvent(FoundWidgetPath, SyntheticMouseUpEvent);
 	}
 
 	const FKey& ReleasedKey = MouseEvent.GetEffectingButton();
@@ -249,7 +360,7 @@ void FVirtualAnalogCursor::Tick(const float DeltaTime, FSlateApplication& SlateA
 				const FVector2D A3 = (AccelFromAnalogStick - (DragCo * (Velocity + (A2 * 0.5f)))) * DeltaTime;
 				const FVector2D A4 = (AccelFromAnalogStick - (DragCo * (Velocity + A3))) * DeltaTime;
 				NewAccelerationThisFrame = (A1 + (2.0f * A2) + (2.0f * A3) + A4) / 6.0f;
-				Velocity += NewAccelerationThisFrame;
+				Velocity += NewAccelerationThisFrame;						
 			}
 		}
 		else
@@ -275,11 +386,57 @@ void FVirtualAnalogCursor::Tick(const float DeltaTime, FSlateApplication& SlateA
 		{
 			LastCursorDirection = Velocity.GetSafeNormal();
 		}
-
+		
 		// Update the new position
 		CurrentPosition += (Velocity * DeltaTime);
+
+		// VIRTUAL GAMEPAD UPDATE
+		// Creating variables for SyntheticMouseMoveEvent to make "on mouse move" function call in active widget
+		FInputDeviceId DeviceId = FInputDeviceId::CreateFromInternalId(GetOwnerUserIndex());
+		const uint32 PointerIndex = 0;
+		const float WheelDelta = 0.0f;
+		const bool bIsPrimary = true;
+		const bool bIsTouchEvent = false;
+		const bool bIsSynthesized = true;
+		const FModifierKeysState ModifierKeys;
+		const uint32 UserIndex = GetOwnerUserIndex();
+		TOptional<int32> TouchpadIndex; 
+		FVector2D LastPosition = CurrentPosition - Velocity * DeltaTime;
+
+		// Determine drag state from PressedKeys
+		bool bIsDragging = PressedKeys.Contains(EKeys::LeftMouseButton);
+
+		// Build pressed buttons set based on drag state
+		TSet<FKey> PressedButtonsSet;
+		if (bIsDragging)
+		{
+			PressedButtonsSet.Add(EKeys::LeftMouseButton);
+		}
+
+		// To make the "on mouse move" function call 
+		FPointerEvent SyntheticMouseMoveEvent(
+			DeviceId,
+			PointerIndex,
+			CurrentPosition,
+			LastPosition,
+			PressedButtonsSet,          
+			bIsDragging ? EKeys::Invalid : EKeys::Invalid, //bIsDragging ? EKeys::LeftMouseButton : EKeys::Invalid,
+			WheelDelta,
+			ModifierKeys,
+			UserIndex
+		);
+			
+
+		if (WidgetPath.IsValid())
+		{
+			// "on mouse move" function call 
+			SlateApp.RoutePointerMoveEvent(WidgetPath, SyntheticMouseMoveEvent, true);
+		}
 		
-		// Update the cursor position
+		// Update the cursor position via windows 
+		//ReliableCursorMove();		
+		
+		// Update the cursor position via engine functionality
 		UpdateCursorPosition(SlateApp, SlateApp.GetUser(GetOwnerUserIndex()).ToSharedRef(), CurrentPosition);
 
 		// If we get here, and we are moving the stick, then hooray
