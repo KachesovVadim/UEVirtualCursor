@@ -1,4 +1,4 @@
-﻿// Copyright 2020 by Nicholas Helish. All Rights Reserved.
+// Copyright 2020 by Nicholas Helish. All Rights Reserved.
 
 #include "VirtualAnalogCursor.h"
 
@@ -226,7 +226,7 @@ bool FVirtualAnalogCursor::HandleMouseButtonDownEvent(FSlateApplication& SlateAp
 			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, "MOUSE: " + PressedKey.ToString() + " Pressed");
 		}
 	}
-	return false;
+	return true;
 }
 
 bool FVirtualAnalogCursor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
@@ -273,7 +273,7 @@ bool FVirtualAnalogCursor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp,
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Cyan, "MOUSE: " + ReleasedKey.ToString() + " Released");
 	}
 	PressedKeys.Remove(ReleasedKey);
-	return false;
+	return true;
 }
 
 void FVirtualAnalogCursor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
